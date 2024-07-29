@@ -137,7 +137,7 @@ namespace Const
     inline constexpr scalar d         = 4.17e-10;
 
     //- Nitrogen gas specific gas constant, m^2 s^-2 K^-1 (N2)
-    inline constexpr scalar R         = k/m;
+    inline constexpr scalar R         = 287;
 
     //- Mean free path length, m
     inline constexpr scalar l         = 1.0;
@@ -156,7 +156,7 @@ namespace Const
                                     / ( 4.0*alpha*( 5.0-2.0*omega )*( 7.0-2.0*omega )*d*d);
 
     //- Rotational degree of freedom
-    static const scalar Kr            = 0.0;
+    static const scalar Kr            = 2;
 
     //- Gamma 
     static const scalar gamma         = ( 5.0+Kr ) / ( 3.0+Kr );

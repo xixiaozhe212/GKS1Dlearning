@@ -207,45 +207,7 @@ void cal_Moment_uNegative(const tensor1 &prim, tensor1 &MuR, tensor1 &Mxi)// x>0
 
 }
 
-tensor1 Moment_psi_half(const tensor1 &Mu, const tensor1 &Mxi)// \psi={1,u,1/2(u^2+\xi^2)}T
-{
-    tensor1 moment_psi(3);
-
-    moment_psi[0] = Mu[0];
-    moment_psi[1] = Mu[1];
-    moment_psi[2] = 0.5 * (Mu[2] + Mxi[1] * Mu[0]);
-  
-    return moment_psi;
-
-}
-
-tensor1 Moment_u_psi(const tensor1 &Mu, const tensor1 &Mxi)
-{
-    tensor1 moment_psi(3);
-
-    moment_psi[0] = Mu[1];
-    moment_psi[1] = Mu[2];
-    moment_psi[2] = 0.5 * (Mu[3] + Mxi[1] * Mu[1]);
-  
-    return moment_psi;
-
-}
-
-
-// tensor1 Moment_psi(const tensor1 &Mu, const tensor1 &Mxi, label alpha, label delta)
-// {
-//     tensor1 moment_psi(3);
-
-//     std::cout << Mu[0] << " " << Mxi[0] << std::endl;
-//     moment_psi[0] = Mu[alpha]   * Mxi[delta/2];
-//     moment_psi[1] = Mu[alpha+1] * Mxi[delta/2];
-//     moment_psi[2] 
-//                   = 0.5 * ( Mu[alpha+2] * Mxi[delta/2] 
-//                           + Mu[alpha]   * Mxi[(delta+2)/2] );
-
-//     return moment_psi;
-// }
-
+//两种求斜率的方法
 tensor1 micro_slope(const tensor1 &slope, const tensor1 &prim)
 {
     const scalar N = Const::Kr + Const::Kv;
@@ -270,8 +232,48 @@ tensor1 micro_slope(const tensor1 &slope, const tensor1 &prim)
     return { a1, a2, a3 };
 }
 
+// tensor1 micro_slope(const tensor1 &slope, const tensor1 &prim, const tensor1 &con)
+// {
+//     const scalar N = Const::Kr + Const::Kv;
+//     const scalar K = N + 2.0;
+    
+//     scalar a1, a2, a3;
+    
+//     scalar srho  = slope[0];// partia rho/partial x
+//     scalar srhoU = slope[1];
+//     scalar srhoE = slope[2];
 
+//     scalar rho = prim[0], U = prim[1], lambda = prim[2];
+//     scalar rho_d = 1/rho;
+    
+//     scalar sU = rho_d * (srhoU - U * srho);
+//     scalar sLambda = (K+1.0)/4.0*(1.0/pow(con[2]/rho-0.5*U*U,2))*(-rho_d*srhoE+con[2]/(rho*rho)*srho+U*sU);
 
+//     a1 = rho_d * srho - 2.0 * lambda * U * sU + (0.5*(K+1)/lambda-U*U)*sLambda;
+//     a2 = 2.0*(lambda*sU+U*sLambda);
+//     a3 = -2*sLambda;
+
+//     return { a1, a2, a3 };
+// }
+
+tensor1 Moment_half(const tensor1 &slope, label m, label n, const tensor1 &Mu, const tensor1 &Mxi)
+{
+    tensor1 moment(3);
+
+    moment[0] = slope[0] * Mu[m] * Mxi[n] \
+                + slope[1] * Mu[m+1] * Mxi[n] \
+                + slope[2] * 0.5 * (Mu[m+2] * Mxi[n] + Mu[m] * Mxi[n+1]);
+
+    moment[1] = slope[0] * Mu[m+1] * Mxi[n] \
+                + slope[1] * Mu[m+2] * Mxi[n] \
+                + slope[2] * 0.5 * (Mu[m+3] * Mxi[n] + Mu[m+1] * Mxi[n+1]);
+
+    moment[2] = 0.5 * (slope[0] * (Mu[m+2] * Mxi[n] + Mu[m] * Mxi[n+1]) \
+                + slope[1] * (Mu[m+3] * Mxi[n] + Mu[m+1] * Mxi[n+1]) \
+                + slope[2] * 0.5 * (Mu[m+4] * Mxi[n] + Mu[m] * Mxi[n+2] + 2 * Mu[m+2] * Mxi[n+1]));
+
+    return moment;
+}
 
 }
 
@@ -346,11 +348,8 @@ void FVM::Face::get_KFVS_flux(const scalar dt)
     const scalar rhoL = primL[0], lambdaL = primL[2];
     const scalar rhoR = primR[0], lambdaR = primR[2];
 
-    tensor1 MuL(4);
-    tensor1 MuR(4);
-    tensor1 MxiL(3);
-    tensor1 MxiR(3);
-
+    tensor1 MuL(7), MuR(7), MxiL(3), MxiR(3);
+    
     // first order part
     cal_Moment_uPositive(primL, MuL, MxiL);
     cal_Moment_uNegative(primR, MuR, MxiR);
@@ -359,16 +358,15 @@ void FVM::Face::get_KFVS_flux(const scalar dt)
     tensor1 a_L = micro_slope(cellL.sW, primL);
     tensor1 a_R = micro_slope(cellR.sW, primR);
 
-    scalar aL = a_L[0] + a_L[1] *MuL[1] + a_L[2] * 0.5*(MuL[2]+MxiL[1]);
-    scalar aR = a_R[0] + a_R[1] *MuR[1] + a_R[2] * 0.5*(MuR[2]+MxiR[1]);
-
-    flux[0] = ( rhoL * MuL[1] + rhoR * MuR[1] ) * dt -
-              ( rhoL * MuL[2] * aL + rhoR * MuR[2] * aR ) * (0.5 *dt*dt);
-    flux[1] = ( rhoL * MuL[2] + rhoR * MuR[2] ) * dt -
-              ( rhoL * MuL[3] * aL + rhoR * MuR[3] * aR ) * (0.5 *dt*dt);
-    flux[2] = ( rhoL * (0.5*(MuL[3]+MuL[1]*MxiL[1])) + rhoR * (0.5*(MuR[3]+MuR[1]*MxiR[1])) ) * dt -
-              ( rhoL * (0.5*(MuL[4]+MuL[2]*MxiL[1])) * aL + rhoR * (0.5*(MuR[4]+MuR[2]*MxiR[1])) * aR ) * (0.5 *dt*dt);
-        
+    tensor1 t(2), flux(3);
+    tensor1 unit = {1, 0, 0};
+    
+    t[0] = dt;
+    t[1] = - 0.5 * dt * dt;
+    
+    flux = t[0] * ( rhoL * Moment_half(unit, 1, 0, MuL, MxiL) + rhoR * Moment_half(unit, 1, 0, MuR, MxiR));
+    flux += t[1] * ( rhoL * Moment_half(a_L, 2, 0, MuL, MxiL) + rhoR * Moment_half(a_R, 2, 0, MuR, MxiR));
+    
 }
 
 
@@ -377,6 +375,7 @@ void FVM::Face::get_GKS_flux(const scalar dt)
     using namespace Const;
     using namespace Tools;
     using namespace Moment;
+    tensor1 unit = {1, 0, 0};
 
     // Get Wl, Wr and their moments
     interpolate();
@@ -384,31 +383,13 @@ void FVM::Face::get_GKS_flux(const scalar dt)
     const scalar rhoL = primL[0], lambdaL = primL[2];
     const scalar rhoR = primR[0], lambdaR = primR[2];
 
-    tensor1 MuL(7), MxiL(3);
-    tensor1 MuR(7), MxiR(3);
+    tensor1 MuL(7), MuR(7), MxiL(3), MxiR(3);
    
     cal_Moment_uPositive(primL, MuL, MxiL);
     cal_Moment_uNegative(primR, MuR, MxiR);
     
-    // second order part 1
-    tensor1 a_L = micro_slope(cellL.sW, primL);
-    tensor1 a_R = micro_slope(cellR.sW, primR);
-
-    scalar aL = a_L[0] + a_L[1] *MuL[1] + a_L[2] * 0.5*(MuL[2]+MxiL[1]);
-    scalar aR = a_R[0] + a_R[1] *MuR[1] + a_R[2] * 0.5*(MuR[2]+MxiR[1]);
-
-    tensor1 slope_t_L = -rhoL * aL * Moment_u_psi(MuL, MxiL);
-    tensor1 slope_t_R = -rhoR * aR * Moment_u_psi(MuR, MxiR);
-
-    tensor1 a_t_L = micro_slope(slope_t_L, primL);
-    tensor1 a_t_R = micro_slope(slope_t_R, primR);
-
-    scalar atL = a_t_L[0] + a_t_L[1] *MuL[1] + a_t_L[2] * 0.5*(MuL[2]+MxiL[1]);
-    scalar atR = a_t_R[0] + a_t_R[1] *MuR[1] + a_t_R[2] * 0.5*(MuR[2]+MxiR[1]);
-    
-
     //macroscopic variables at the interface, j+1/2, collapsed left and right
-    const tensor1 W_c = rhoL * Moment_psi_half(MuL, MxiL) + rhoR * Moment_psi_half(MuR, MxiR);
+    const tensor1 W_c = rhoL * Moment_half(unit, 0, 0, MuL, MxiL) + rhoR * Moment_half(unit, 0, 0, MuR, MxiR);
     
     const tensor1 prim_c = con2prim(W_c);
     const scalar rhoC = prim_c[0];
@@ -416,17 +397,23 @@ void FVM::Face::get_GKS_flux(const scalar dt)
     tensor1 MuC(6), MxiC(3);
     cal_Moment_u(prim_c, MuC, MxiC);
 
-    // second order part 2
-    tensor1 slope_C = rhoL * aL * Moment_psi_half(MuL, MxiL) + rhoR * aR * Moment_psi_half(MuR, MxiR);
-    tensor1 a_C = micro_slope(slope_C, primL);
-    scalar aC = a_C[0] + a_C[1] *MuC[1] + a_C[2] * 0.5*(MuC[2]+MxiC[1]);
+    // second order part
+    tensor1 a_L = micro_slope(cellL.sW, primL);
+    tensor1 a_R = micro_slope(cellR.sW, primR);
+    
+    tensor1 slope_t_L = -rhoL * Moment_half(a_L, 1, 0, MuL, MxiL);
+    tensor1 slope_t_R = -rhoR * Moment_half(a_R, 1, 0, MuR, MxiR);
 
-    tensor1 slope_t_C = -rhoC * aC * Moment_u_psi(MuC, MxiC);
+    tensor1 a_t_L = micro_slope(slope_t_L, primL);
+    tensor1 a_t_R = micro_slope(slope_t_R, primR);
+
+    tensor1 slope_C = rhoL * Moment_half(a_L, 0, 0, MuL, MxiL) + rhoR * Moment_half(a_R, 0, 0, MuR, MxiR);
+    tensor1 a_C = micro_slope(slope_C, prim_c);
+
+    tensor1 slope_t_C = -rhoC * Moment_half(a_C, 1, 0, MuC, MxiC);
     tensor1 a_t_C = micro_slope(slope_t_C, prim_c);
-    scalar atC = a_t_C[0] + a_t_C[1] *MuC[1] + a_t_C[2] * 0.5*(MuC[2]+MxiC[1]);
 
-    //inviscid flow
-    //- Get artifical viscosity
+    //inviscid flow, - Get artifical viscosity
     double C = fabs(rhoL / lambdaL - rhoR / lambdaR) / fabs(rhoL / lambdaL + rhoR / lambdaR);//不加f可能求出来的是整型
     const scalar C1 = 0.05, C2 = 1;
     const scalar tau = C1 * dt;
@@ -435,51 +422,28 @@ void FVM::Face::get_GKS_flux(const scalar dt)
     scalar eta = exp(-dt/taunum);
     M = exp(-dt/taunum);
 
+    tensor1 t(6);
+    tensor1 Ffr(3), Feq(3), flux(3);
     
+    t[0] = taunum * (1 - eta);
+    t[1] = taunum * taunum * (eta - 1) + taunum * tau * (eta - 1) + taunum * eta * dt;
+    t[2] = taunum * tau * (eta - 1);
+    t[3] = dt + taunum * eta - taunum;
+    t[4] = taunum * taunum * (1 - eta) + taunum * tau * (1 - eta) - taunum * eta * dt - tau * dt;
+    t[5] = 0.5 * dt * dt + taunum * tau * (1 - eta) - tau * dt;
+
     // Free transport part, F0
-    tensor1 Ffr(3);
-    scalar t1, t2, t3;
-
-    t1 = taunum * (1 - eta);
-    t2 = taunum * taunum * (eta - 1) + taunum * tau * (eta - 1) + taunum * eta * dt;
-    t3 = taunum * tau * (eta - 1);
-
-    Ffr[0] = t1 * ( rhoL * MuL[1] + rhoR * MuR[1] );
-    Ffr[0] += t2 * ( rhoL * aL * MuL[2] + rhoR * aR * MuR[2] );
-    Ffr[0] += t3 * ( rhoL * atL * MuL[1] + rhoR * atR * MuR[1] );
-
-    Ffr[1] = t1 * ( rhoL * MuL[2] + rhoR * MuR[2] );
-    Ffr[1] += t2 * ( rhoL * aL * MuL[3] + rhoR * aR * MuR[3] );
-    Ffr[1] += t3 *( rhoL * atL * MuL[2] + rhoR * atR * MuR[2] );
-
-    Ffr[2] = t1 * ( rhoL * (0.5*(MuL[3]+MuL[1]*MxiL[1])) + rhoR * (0.5*(MuR[3]+MuR[1]*MxiR[1])) );
-    Ffr[2] += t2 * ( rhoL * aL * (0.5*(MuL[4]+MuL[2]*MxiL[1])) + rhoR * aR * (0.5*(MuR[4]+MuR[2]*MxiR[1])) );
-    Ffr[2] += t3 *( rhoL * atL * (0.5*(MuL[3]+MuL[1]*MxiL[1])) + rhoR * atR * (0.5*(MuR[3]+MuR[1]*MxiR[1])) );
-
+    Ffr = t[0] * (rhoL * Moment_half(unit, 1, 0, MuL, MxiL) + rhoR * Moment_half(unit, 1, 0, MuR, MxiR));
+    Ffr += t[1] * (rhoL * Moment_half(a_L, 2, 0, MuL,  MxiL) + rhoR * Moment_half(a_R, 2, 0, MuR,  MxiR));
+    Ffr += t[2] * (rhoL * Moment_half(a_t_L, 1, 0, MuL,  MxiL) + rhoR * Moment_half(a_t_R, 1, 0, MuR,  MxiR));
+    
     //sencond part of the flux, F1
-    tensor1 Feq(3);
-    scalar t4, t5, t6;
-
-    t4 = dt + taunum * eta - taunum;
-    t5 = taunum * taunum * (1 - eta) + taunum * tau * (1 - eta) - taunum * eta * dt - tau * dt;
-    t6 = 0.5 * dt * dt + taunum * tau * (1 - eta) - tau * dt;
-
-    Feq[0] = rhoC * t4 * MuC[1];
-    Feq[0] += -rhoC * t5 * aC * MuC[2];
-    Feq[0] += -rhoC * t6 * atC * MuC[1];
-
-    Feq[1] = rhoC * t4 * MuC[2];
-    Feq[1] += -rhoC * t5 * aC * MuC[3];
-    Feq[1] += -rhoC * t6 * atC * MuC[2];
-
-    Feq[2] = rhoC * t4 * 0.5 * (MuC[3]+MuC[1]*MxiC[1]);
-    Feq[2] += -rhoC * t5 * aC * 0.5 * (MuC[4]+MuC[2]*MxiC[1]);
-    Feq[2] += -rhoC * t6 * atC * 0.5 * (MuC[3]+MuC[1]*MxiC[1]);
+    Feq = t[3] * rhoC * Moment_half(unit, 1, 0, MuC,  MxiC);
+    Feq += t[4] * rhoC * Moment_half(a_C, 2, 0, MuC,  MxiC);
+    Feq += t[5] * rhoC * Moment_half(a_t_C, 1, 0, MuC,  MxiC);
 
     flux = Feq + Ffr;
-
 }
-
 
 // 构造数据结构，cell和face
 FVM::Solver::Solver()
