@@ -94,7 +94,7 @@ namespace Const
 // Mesh Infomation 
 
     //- Mesh number
-    inline constexpr label    numMesh = 1000;
+    inline constexpr label    numMesh = 100;
 
     //- Length, m
     inline constexpr scalar   L       = 1;
@@ -105,23 +105,23 @@ namespace Const
 
 // Initial Condition
 
-    //lax shock tube
-    inline constexpr scalar rhoL = 0.445;
-    inline constexpr scalar Ul   = 0.698;
-    inline constexpr scalar Tl   = 0.027624;   
+    // //lax shock tube
+    // inline constexpr scalar rhoL = 0.445;
+    // inline constexpr scalar Ul   = 0.698;
+    // inline constexpr scalar Tl   = 0.027624;   
 
-    inline constexpr scalar rhoR = 0.5;
-    inline constexpr scalar Ur   = 0.0;
-    inline constexpr scalar Tr   = 0.0039791;
-
-    // //sod shock tube
-    // inline constexpr scalar rhoL = 1.0;
-    // inline constexpr scalar Ul   = 0.0;
-    // inline constexpr scalar Tl   = 0.003484320557491289;   
-
-    // inline constexpr scalar rhoR = 0.125;
+    // inline constexpr scalar rhoR = 0.5;
     // inline constexpr scalar Ur   = 0.0;
-    // inline constexpr scalar Tr   = 0.0027874564459930314;
+    // inline constexpr scalar Tr   = 0.0039791;
+
+    //sod shock tube
+    inline constexpr scalar rhoL = 1.0;
+    inline constexpr scalar Ul   = 0.0;
+    inline constexpr scalar Tl   = 0.003484320557491289;   
+
+    inline constexpr scalar rhoR = 0.125;
+    inline constexpr scalar Ur   = 0.0;
+    inline constexpr scalar Tr   = 0.0027874564459930314;
 
     // inline constexpr scalar rhoL = 6.01888398652e-04;
     // inline constexpr scalar Ul   = 0.0;
@@ -203,7 +203,7 @@ namespace Const
 // Solver
 
     //- Stop Time
-    inline constexpr scalar stopTime     = 0.1;
+    inline constexpr scalar stopTime     = 0.14;
     // inline constexpr scalar stopTime     = 0.00263810493558;
 
 
@@ -249,17 +249,6 @@ public:
     //- Temperature and Pressure
     scalar P, T;
 
-    // Micro Variables
-
-    //- Reduced distribution function for conservative part
-    tensor1 H;
-
-    //- Reduced distribution function for internal degree of freedom
-    tensor1 B;
-
-    //- Slope of micro variables
-    tensor1 sH, sB;
-
 // Constructor
 
     //- Construct by id
@@ -287,26 +276,8 @@ public:
     //- Macro variables after collision
     tensor1 W_c, prim_c;
 
-    //- Reduced distribution function at left and right side
-    tensor1 Hl, Hr, Bl, Br;
-
-    //- Reduced distribution function at cell interface
-    tensor1 H0, B0;
-
-    //- Slope of reduced distribution function at cell interface
-    tensor1 sH0, sB0;
-
-    //- Equilibrium Maxwellian distribution function at cell interface
-    tensor1 Heq, Beq;
-
     //- Macro flux
     tensor1 flux;
-
-    
-    scalar M;
-
-    //- Reduced micro flux
-    tensor1 fluxH, fluxB; 
 
 // Constructor
 

@@ -300,9 +300,7 @@ FVM::Face::Face(const Cell& Lcell, const Cell& Rcell)
     cellL(Lcell), cellR(Rcell), faceID(Lcell.cellID),
     Wl(3), Wr(3), primL(3), primR(3),
     W_c(3), prim_c(3),
-    // Hl(Const::uSize), Hr(Const::uSize), Bl (Const::uSize),  Br(Const::uSize),
-    // H0(Const::uSize), B0(Const::uSize), sH0(Const::uSize), sB0(Const::uSize),
-    flux(3)//, fluxH(Const::uSize), fluxB(Const::uSize)
+    flux(3)
 {}
 
 FVM::Face::~Face()
@@ -358,7 +356,7 @@ void FVM::Face::get_KFVS_flux(const scalar dt)
     tensor1 a_L = micro_slope(cellL.sW, primL);
     tensor1 a_R = micro_slope(cellR.sW, primR);
 
-    tensor1 t(2), flux(3);
+    tensor1 t(2);
     tensor1 unit = {1, 0, 0};
     
     t[0] = dt;
@@ -420,10 +418,9 @@ void FVM::Face::get_GKS_flux(const scalar dt)
     const scalar taunum = C1 * dt + C2 * C * dt;
 
     scalar eta = exp(-dt/taunum);
-    M = exp(-dt/taunum);
 
     tensor1 t(6);
-    tensor1 Ffr(3), Feq(3), flux(3);
+    tensor1 Ffr(3), Feq(3);
     
     t[0] = taunum * (1 - eta);
     t[1] = taunum * taunum * (eta - 1) + taunum * tau * (eta - 1) + taunum * eta * dt;
@@ -607,7 +604,6 @@ void FVM::Solver::update()
     {   
 
         
-        M[i] = faces[i].M;
         // Update macro variables
         cells[i].W += (  faces[i].flux - faces[i+1].flux  ) / dx;
         
@@ -637,7 +633,7 @@ void FVM::Solver::write(std::string str)
     std::ofstream out(s.c_str());
 
     // Write as Tecplot format
-    out << "VARIABLES = X, Density, U, Temperature, P, rhoU, rhoE, M" << std::endl;
+    out << "VARIABLES = X, Density, U, Temperature, P, rhoU, rhoE" << std::endl;
 
     out << "ZONE I = " << Const::numMesh << ", DATAPACKING=POINT"
         << std::endl;
@@ -658,9 +654,7 @@ void FVM::Solver::write(std::string str)
             << T                    << " "
             << P                    << " "
             << cells[i].W[1]        << " "
-            << cells[i].W[2]        << " "
-            << M[i]                 << " "
-            << std::endl;
+            << cells[i].W[2]        << std::endl;
     }
     out.close();
 }
